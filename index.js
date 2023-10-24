@@ -2,6 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import csv from 'csv-parser';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,7 +79,7 @@ function crearArchivoDeTextoConFecha() {
   const currentDate = new Date();
   const formattedDate = `${currentDate.toLocaleDateString()} ${currentDate.toLocaleTimeString()}`;
   const header =
-    'Fecha actual,Mutantes,No Mutantes,Porcentaje de Mutantes,Porcentaje de No Mutantes\n';
+    'FechaActual,mutantes,noMutantes,porcentajeDeMutantes,porcentajeDeNoMutantes\n';
   const porcentajeMutantes = (stats.mutantes / stats.totalDeMuestras).toFixed(
     6
   ); // 6 decimales
@@ -108,12 +109,25 @@ function crearArchivoDeTextoConFecha() {
 app.get('/stats', (req, res) => {
   crearArchivoDeTextoConFecha();
 
-  res.send({
-    mutantes: stats.mutantes,
-    humanos: stats.noMutantes,
-    porcentajeMutantes: getPorcentajeMutantes(),
+  const respuesta = {
+    ...stats,
+    porcentajeDeMutantes: getPorcentajeMutantes(),
     porcentajeNoMutantes: getPorcentajeNoMutantes(),
-  });
+  };
+  res.send(respuesta);
+});
+
+// Ruta para obtener el contenido del CSV en formato JSON
+app.get('/stats-csv', (req, res) => {
+  const filePath = path.join(__dirname, 'Stats.csv');
+  const results = [];
+
+  fs.createReadStream(filePath)
+    .pipe(csv())
+    .on('data', (data) => results.push(data))
+    .on('end', () => {
+      res.json(results);
+    });
 });
 
 // Ruta para verificar si un ADN es mutante o no
